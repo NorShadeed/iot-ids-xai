@@ -1,0 +1,35 @@
+name: notebook-checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate notebook JSON and saved outputs
+        run: |
+          python - <<'PY'
+          import glob
+          import json
+
+          paths = sorted(glob.glob("*.ipynb"))
+          assert paths, "No notebooks found"
+          for path in paths:
+              with open(path, encoding="utf-8") as stream:
+                  notebook = json.load(stream)
+              assert notebook.get("nbformat", 0) >= 4
+              errors = [
+                  output
+                  for cell in notebook.get("cells", [])
+                  for output in cell.get("outputs", [])
+                  if output.get("output_type") == "error"
+              ]
+              assert not errors, f"{path} contains saved execution errors"
+              print(f"validated {path}: {len(notebook.get('cells', []))} cells")
+          PY
